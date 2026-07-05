@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider        = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenses       Expense[]
+  budgets        Budget[]
+  aiReports      AIReport[]
+  chatbotHistory ChatMessage[]
+  notifications  Notification[]
+  savingsGoals   SavingsGoal[]
+}
+
+model Expense {
+  id            String   @id @default(uuid())
+  type          String   @default("EXPENSE") // "INCOME" or "EXPENSE"
+  amount        Float
+  description   String
+  category      String
+  paymentMethod String?
+  date          DateTime @default(now())
+  receiptUrl    String?
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, date])
+}
+
+model Budget {
+  id        String   @id @default(uuid())
+  amount    Float
+  category  String?  // null means overall monthly budget
+  month     Int
+  year      Int
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, month, year, category])
+}
+
+model AIReport {
+  id        String   @id @default(uuid())
+  type      String   // e.g. "MONTHLY_INSIGHT", "FINANCIAL_HEALTH", "RECOMMENDATION"
+  data      Json
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  role      String   // "user" or "assistant"
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      String   // "BUDGET_ALERT", "SAVINGS_ALERT", "INFO"
+  message   String
+  isRead    Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model SavingsGoal {
+  id            String   @id @default(uuid())
+  name          String
+  targetAmount  Float
+  currentAmount Float    @default(0)
+  deadline      DateTime?
+  status        String   @default("IN_PROGRESS") // "IN_PROGRESS", "ACHIEVED"
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
