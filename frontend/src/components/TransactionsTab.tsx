@@ -14,7 +14,9 @@ export default function TransactionsTab({ searchQuery = '' }: { searchQuery?: st
   
   const { data: summary, isLoading } = useQuery({
     queryKey: ['expenseSummary'],
-    queryFn: () => fetchWithAuth('/expenses/summary')
+    queryFn: () => fetchWithAuth('/expenses/summary'),
+    staleTime: 1000 * 60 * 5, // Cache for 5 mins
+    refetchOnWindowFocus: false,
   });
 
   const categories = summary?.recentExpenses ? Array.from(new Set(summary.recentExpenses.map((e: any) => e.category))) as string[] : [];

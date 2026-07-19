@@ -3,11 +3,15 @@ const API_URL = 'http://localhost:5001/api';
 export const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
   const token = localStorage.getItem('token');
   
-  const headers = {
-    'Content-Type': 'application/json',
+  const isFormData = options.body instanceof FormData;
+  const headers: any = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
+  
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,

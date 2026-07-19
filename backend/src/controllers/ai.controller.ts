@@ -1,7 +1,26 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import { parseExpenseWithAI, parseBudgetWithAI, generateInsights } from '../services/ai.service';
+import { parseExpenseWithAI, parseBudgetWithAI, generateInsights, transcribeAudio } from '../services/ai.service';
 import prisma from '../utils/prisma';
+
+export const processVoice = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No audio file provided' });
+    }
+
+    // Transcribe audio using Whisper
+    const text = await transcribeAudio(req.file.buffer, req.file.originalname || 'audio.webm');
+
+    res.json({ text });
+  } catch (error: any) {
+    console.error('Voice Processing Error:', error);
+    if (error.message?.includes('429') || error.message?.includes('quota') || error.status === 429) {
+      return res.status(429).json({ message: 'OpenAI rate limit reached. Please check your billing or quota.' });
+    }
+    res.status(500).json({ message: error.message || 'Failed to process voice audio' });
+  }
+};
 
 export const parseAndSaveExpense = async (req: AuthRequest, res: Response) => {
   try {
@@ -110,10 +129,31 @@ export const parseAndSaveBudget = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('AI Parsing Error:', error);
     let message = 'Failed to parse budget using AI.';
-    if (error.message?.includes('503') || error.message?.includes('high demand')) {
-      message = 'The AI service is currently experiencing high demand. Please try again in a few moments.';
+    let status = 500;
+    
+    if (error.message?.includes('429') || error.message?.includes('quota') || error.status === 429) {
+      message = 'AI rate limit reached. Please wait 1 minute before trying again.';
+      status = 429;
+    } else {
+      try {
+        const parsed = JSON.parse(error.message[0] === '[' ? error.message.slice(error.message.indexOf('{')) : error.message);
+        if (parsed.error?.message) {
+          message = parsed.error.message;
+          if (message.includes('quota') || message.includes('rate limit')) {
+            message = 'AI rate limit reached. Please wait 1 minute before trying again.';
+            status = 429;
+          }
+        }
+      } catch {
+        if (error.message?.includes('503') || error.message?.includes('high demand')) {
+          message = 'The AI service is currently experiencing high demand. Please try again in a few moments.';
+        } else {
+          message = error.message || message;
+        }
+      }
     }
-    res.status(500).json({ message });
+
+    res.status(status).json({ message });
   }
 };
 export const getInsights = async (req: AuthRequest, res: Response) => {

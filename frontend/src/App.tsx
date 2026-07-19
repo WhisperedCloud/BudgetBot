@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   LayoutDashboard, Wallet, PieChart, MessageSquare, 
@@ -6,13 +6,15 @@ import {
   Plus, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Toaster, toast } from 'sonner';
+import { Toaster } from 'sonner';
+import { notify } from './lib/notifications';
 import { fetchWithAuth } from './lib/api';
 import MeshGradient from './components/MeshGradient';
 import OverviewTab from './components/OverviewTab';
 import TransactionsTab from './components/TransactionsTab';
 import BudgetsTab from './components/BudgetsTab';
 import AIAdvisorTab from './components/AIAdvisorTab';
+import SettingsTab from './components/SettingsTab';
 import './App.css';
 
 function App() {
@@ -33,13 +35,18 @@ function App() {
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
-    toast.success('Logged out successfully');
+    notify.success('Signed Out', 'Logged out successfully');
+  };
+
+  const handleUpdateUser = (updatedUser: any) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
   return (
     <>
       <Toaster position="bottom-right" richColors />
-      {!token ? <AuthScreen onLogin={handleLogin} /> : <Dashboard user={user} onLogout={handleLogout} />}
+      {!token ? <AuthScreen onLogin={handleLogin} /> : <Dashboard user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} />}
     </>
   );
 }
@@ -53,12 +60,26 @@ function AuthScreen({ onLogin }: { onLogin: (token: string, user: any) => void }
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
+      if (requires2FA) {
+        const data = await fetchWithAuth('/auth/login/2fa', {
+          method: 'POST',
+          body: JSON.stringify({ userId: pendingUserId, code: twoFactorCode })
+        });
+        notify.success('Authentication', 'Welcome back!');
+        onLogin(data.token, data.user);
+        return;
+      }
+
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
       const body = isLogin ? { email, password } : { email, password, name };
       
@@ -67,11 +88,17 @@ function AuthScreen({ onLogin }: { onLogin: (token: string, user: any) => void }
         body: JSON.stringify(body)
       });
 
-      toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
+      if (data.requires2FA) {
+        setRequires2FA(true);
+        setPendingUserId(data.userId);
+        return;
+      }
+
+      notify.success('Authentication', isLogin ? 'Welcome back!' : 'Account created successfully!');
       onLogin(data.token, data.user);
     } catch (err: any) {
       setError(err.message);
-      toast.error(err.message);
+      notify.error('Authentication Failed', err.message);
     } finally {
       setLoading(false);
     }
@@ -143,8 +170,48 @@ function AuthScreen({ onLogin }: { onLogin: (token: string, user: any) => void }
             </AnimatePresence>
 
             <AnimatePresence mode="wait">
-              <motion.form 
-                key={isLogin ? 'login-form' : 'register-form'}
+              {requires2FA ? (
+                <motion.form 
+                  key="2fa-form"
+                  variants={formVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  onSubmit={handleSubmit} 
+                  className="space-y-4 md:space-y-5 w-full"
+                >
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-medium text-foreground mb-2">Two-Factor Authentication</h3>
+                    <p className="text-sm text-muted-foreground">Enter the 6-digit code from your authenticator app</p>
+                  </div>
+                  <motion.div variants={itemVariants}>
+                    <input 
+                      type="text" required value={twoFactorCode} onChange={(e) => setTwoFactorCode(e.target.value)}
+                      className="w-full bg-secondary/30 border border-border rounded-xl px-4 py-3 md:py-4 text-foreground text-center tracking-[0.5em] text-2xl font-mono focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      placeholder="000000"
+                      maxLength={6}
+                    />
+                  </motion.div>
+                  <motion.button 
+                    variants={itemVariants}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    type="submit" disabled={loading || twoFactorCode.length !== 6}
+                    className="w-full bg-primary text-primary-foreground font-medium py-3.5 md:py-4 rounded-xl hover:bg-primary/90 transition-all mt-4 flex justify-center items-center shadow-lg disabled:opacity-70 text-sm md:text-base"
+                  >
+                    {loading ? <Loader2 className="animate-spin" size={20} /> : 'Verify Code'}
+                  </motion.button>
+                  <motion.button 
+                    type="button" 
+                    onClick={() => { setRequires2FA(false); setTwoFactorCode(''); }} 
+                    className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-4 block"
+                  >
+                    Back to login
+                  </motion.button>
+                </motion.form>
+              ) : (
+                <motion.form 
+                  key={isLogin ? 'login-form' : 'register-form'}
                 variants={formVariants}
                 initial="hidden"
                 animate="visible"
@@ -200,14 +267,17 @@ function AuthScreen({ onLogin }: { onLogin: (token: string, user: any) => void }
                   {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Sign In' : 'Create Account')}
                 </motion.button>
               </motion.form>
+              )}
             </AnimatePresence>
 
-            <motion.p layoutId="switch-text" className="text-center text-muted-foreground mt-8 md:mt-10 text-sm font-light">
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <button onClick={() => setIsLogin(!isLogin)} type="button" className="text-primary hover:text-primary/80 font-medium transition-colors">
-                {isLogin ? 'Sign up' : 'Sign in'}
-              </button>
-            </motion.p>
+            {!requires2FA && (
+              <motion.p layoutId="switch-text" className="text-center text-muted-foreground mt-8 md:mt-10 text-sm font-light">
+                {isLogin ? "Don't have an account? " : "Already have an account? "}
+                <button onClick={() => setIsLogin(!isLogin)} type="button" className="text-primary hover:text-primary/80 font-medium transition-colors">
+                  {isLogin ? 'Sign up' : 'Sign in'}
+                </button>
+              </motion.p>
+            )}
           </div>
         </motion.div>
       </div>
@@ -215,7 +285,7 @@ function AuthScreen({ onLogin }: { onLogin: (token: string, user: any) => void }
   );
 }
 
-function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
+function Dashboard({ user, onLogout, onUpdateUser }: { user: any, onLogout: () => void, onUpdateUser: (u: any) => void }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'ai' | 'manual' | null>(null);
@@ -229,17 +299,40 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       { id: 3, title: 'Goal Reached', icon: '✅', desc: 'Congratulations! You met your monthly savings goal of ₹10,000.', time: '1 DAY AGO', read: false, colorClass: 'group-hover:text-green-600' }
     ];
   });
-
   useEffect(() => {
     localStorage.setItem('financeTracker_notifications', JSON.stringify(notifications));
   }, [notifications]);
+
+  useEffect(() => {
+    const handleNotification = (e: any) => {
+      const { title, desc, type } = e.detail;
+      const newNotif = {
+        id: Date.now(),
+        title,
+        icon: type === 'success' ? '✅' : type === 'error' ? '❌' : '💡',
+        desc,
+        time: 'JUST NOW',
+        read: false,
+        colorClass: type === 'success' ? 'group-hover:text-green-600' : type === 'error' ? 'group-hover:text-destructive' : 'group-hover:text-primary'
+      };
+      setNotifications((prev: any[]) => [newNotif, ...prev]);
+    };
+    window.addEventListener('finance_notification', handleNotification);
+    return () => window.removeEventListener('finance_notification', handleNotification);
+  }, []);
 
   const unreadCount = notifications.filter((n: any) => !n.read).length;
 
   const { data: summary, isLoading } = useQuery({
     queryKey: ['expenseSummary'],
-    queryFn: () => fetchWithAuth('/expenses/summary')
+    queryFn: () => fetchWithAuth('/expenses/summary'),
+    staleTime: 1000 * 60 * 5, // Cache for 5 mins
+    refetchOnWindowFocus: false,
   });
+
+  const handleUpdateUser = (updatedUser: any) => {
+    onUpdateUser(updatedUser);
+  };
 
   const renderTabContent = () => {
     switch(activeTab) {
@@ -247,6 +340,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       case 'transactions': return <TransactionsTab key="transactions" />;
       case 'budgets': return <BudgetsTab key="budgets" />;
       case 'advisor': return <AIAdvisorTab key="advisor" summary={summary} />;
+      case 'settings': return <SettingsTab key="settings" user={user} onLogout={onLogout} onUpdateUser={handleUpdateUser} />;
       default: return <OverviewTab key="default" summary={summary} />;
     }
   };
@@ -329,13 +423,16 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             </div>
             <div className="flex items-center gap-3 md:gap-4 sm:pl-8 sm:border-l border-border">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-foreground">{user?.name || 'Guest'}</p>
-                <p className="text-xs text-primary font-medium tracking-wide">PREMIUM</p>
+                <p className="text-sm font-medium text-foreground">{user?.name || 'Guest'}</p>    
               </div>
               <div
-                className="w-11 h-11 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg shadow-sm"
+                className="w-11 h-11 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg shadow-sm overflow-hidden relative"
               >
-                {user?.name ? user.name[0].toUpperCase() : 'G'}
+                {user?.profileImage ? (
+                  <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  user?.name ? user.name[0].toUpperCase() : 'G'
+                )}
               </div>
             </div>
           </div>
@@ -401,38 +498,64 @@ function TransactionModal({ mode, onClose }: { mode: 'ai' | 'manual', onClose: (
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
 
-  const handleSpeech = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setError('Your browser does not support Voice Recognition.');
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const handleSpeech = async () => {
+    if (isListening) {
+      mediaRecorderRef.current?.stop();
+      setIsListening(false);
       return;
     }
-    
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = true;
 
-    recognition.onstart = () => { setIsListening(true); setError(''); };
-    recognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results).map((r: any) => r[0].transcript).join('');
-      setText(transcript);
-    };
-    recognition.onerror = (event: any) => { setError('Error: ' + event.error); setIsListening(false); };
-    recognition.onend = () => { setIsListening(false); };
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
 
-    if (isListening) recognition.stop();
-    else recognition.start();
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'voice.webm');
+
+        setLoading(true);
+        try {
+          const res = await fetchWithAuth('/ai/voice', {
+            method: 'POST',
+            body: formData,
+          });
+          setText(res.text);
+        } catch (err: any) {
+          setError(err.message || 'Failed to process voice');
+        } finally {
+          setLoading(false);
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      mediaRecorder.start();
+      setIsListening(true);
+      setError('');
+    } catch (err) {
+      setError('Microphone access denied or unavailable.');
+    }
   };
 
   const handleAISubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      await fetchWithAuth('/ai/parse-expense', { method: 'POST', body: JSON.stringify({ text }) });
+      const res = await fetchWithAuth('/ai/parse-expense', { method: 'POST', body: JSON.stringify({ text }) });
       queryClient.invalidateQueries({ queryKey: ['expenseSummary'] });
-      toast.success('Transaction parsed and saved!');
+      const exp = res.expense;
+      notify.success('Transaction AI', `AI logged ${exp.type === 'INCOME' ? '+' : '-'}₹${exp.amount} for ${exp.category}.`);
       onClose();
-    } catch (err: any) { setError(err.message); toast.error(err.message); } finally { setLoading(false); }
+    } catch (err: any) { setError(err.message); notify.error('AI Processing Failed', err.message); } finally { setLoading(false); }
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -444,9 +567,9 @@ function TransactionModal({ mode, onClose }: { mode: 'ai' | 'manual', onClose: (
         body: JSON.stringify({ type, amount, category, description })
       });
       queryClient.invalidateQueries({ queryKey: ['expenseSummary'] });
-      toast.success('Transaction saved!');
+      notify.success('Transaction Saved', `Logged ${type === 'INCOME' ? '+' : '-'}₹${amount} for ${category}.`);
       onClose();
-    } catch (err: any) { setError(err.message); toast.error(err.message); } finally { setLoading(false); }
+    } catch (err: any) { setError(err.message); notify.error('Save Failed', err.message); } finally { setLoading(false); }
   };
 
   return (
@@ -564,3 +687,4 @@ function NotificationDropdown({ isOpen, onClose, notifications, onMarkAsRead, on
 }
 
 export default App;
+

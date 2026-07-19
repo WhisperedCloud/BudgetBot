@@ -24,8 +24,12 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
+    "multer": "^2.2.0",
+    "openai": "^6.48.0",
     "pg": "^8.22.0",
     "prisma": "^7.8.0",
+    "qrcode": "^1.5.4",
+    "speakeasy": "^2.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -34,8 +38,11 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
+    "@types/multer": "^2.2.0",
     "@types/node": "^26.0.0",
     "@types/pg": "^8.20.0",
+    "@types/qrcode": "^1.5.6",
+    "@types/speakeasy": "^2.0.10",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }

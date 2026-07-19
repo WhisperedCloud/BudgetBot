@@ -20,10 +20,16 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
-  name      String?
-  role      Role     @default(STUDENT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  name          String?
+  profileImage  String?
+  budgetAlerts       Boolean  @default(true)
+  weeklyReport       Boolean  @default(false)
+  currency           String   @default("INR")
+  isTwoFactorEnabled Boolean  @default(false)
+  twoFactorSecret    String?
+  role          Role     @default(STUDENT)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   expenses       Expense[]
   budgets        Budget[]

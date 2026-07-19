@@ -103,3 +103,46 @@ export const createBudget = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+export const updateBudget = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const { amount, category } = req.body;
+
+    const budget = await prisma.budget.findFirst({ where: { id: id as string, userId } });
+    if (!budget) {
+      return res.status(404).json({ message: 'Budget not found' });
+    }
+
+    const updated = await prisma.budget.update({
+      where: { id: id as string },
+      data: { 
+        ...(amount && { amount: parseFloat(amount as string) }),
+        ...(category && { category: category as string })
+      }
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating budget:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const deleteBudget = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    const budget = await prisma.budget.findFirst({ where: { id: id as string, userId } });
+    if (!budget) {
+      return res.status(404).json({ message: 'Budget not found' });
+    }
+
+    await prisma.budget.delete({ where: { id: id as string } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting budget:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
