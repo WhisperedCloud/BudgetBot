@@ -2,7 +2,7 @@
 
 BudgetBot is an intelligent, AI-powered personal finance companion. It combines a beautiful, responsive dashboard with powerful generative AI models to help you seamlessly track expenses, manage budgets, and receive proactive, personalized financial advice.
 
-![BudgetBot Dashboard](https://github.com/WhisperedCloud/BudgetBot/assets/placeholder.png)
+![BudgetBot Dashboard](https://github.com/WhisperedCloud/BudgetBot/frontend/public/Img1.png)
 
 ## ✨ Key Features
 
