@@ -53,8 +53,8 @@ function App() {
 
 function AuthScreen({ onLogin }: { onLogin: (token: string, user: any) => void }) {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('demo@budgetbot.com');
-  const [password, setPassword] = useState('demo123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -271,12 +271,28 @@ function AuthScreen({ onLogin }: { onLogin: (token: string, user: any) => void }
             </AnimatePresence>
 
             {!requires2FA && (
-              <motion.p layoutId="switch-text" className="text-center text-muted-foreground mt-8 md:mt-10 text-sm font-light">
-                {isLogin ? "Don't have an account? " : "Already have an account? "}
-                <button onClick={() => setIsLogin(!isLogin)} type="button" className="text-primary hover:text-primary/80 font-medium transition-colors">
-                  {isLogin ? 'Sign up' : 'Sign in'}
-                </button>
-              </motion.p>
+              <div className="flex flex-col items-center gap-4 mt-8 md:mt-10">
+                <motion.p layoutId="switch-text" className="text-center text-muted-foreground text-sm font-light">
+                  {isLogin ? "Don't have an account? " : "Already have an account? "}
+                  <button onClick={() => setIsLogin(!isLogin)} type="button" className="text-primary hover:text-primary/80 font-medium transition-colors">
+                    {isLogin ? 'Sign up' : 'Sign in'}
+                  </button>
+                </motion.p>
+                
+                {isLogin && (
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setEmail('demo@budgetbot.com');
+                      setPassword('demo123');
+                    }}
+                    className="text-xs text-muted-foreground/80 hover:text-primary transition-colors flex items-center gap-2 border border-border/50 px-4 py-2 rounded-full hover:bg-secondary/20"
+                  >
+                    <Sparkles size={14} />
+                    Use Demo Account
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </motion.div>
