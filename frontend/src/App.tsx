@@ -286,7 +286,7 @@ function AuthScreen({ onLogin }: { onLogin: (token: string, user: any) => void }
                       setEmail('demo@budgetbot.com');
                       setPassword('demo123');
                     }}
-                    className="text-xs text-muted-foreground/80 hover:text-primary transition-colors flex items-center gap-2 border border-border/50 px-4 py-2 rounded-full hover:bg-secondary/20"
+                    className="text-sm bg-secondary text-foreground hover:bg-secondary/80 transition-colors flex items-center gap-2 px-5 py-2.5 rounded-full font-medium shadow-sm"
                   >
                     <Sparkles size={14} />
                     Use Demo Account

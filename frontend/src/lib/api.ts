@@ -13,7 +13,8 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  const fullUrl = `${API_URL}${endpoint}`.replace(/([^:]\/)\/+/g, "$1");
+  const response = await fetch(fullUrl, {
     ...options,
     headers,
   });
