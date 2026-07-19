@@ -53,8 +53,8 @@ function App() {
 
 function AuthScreen({ onLogin }: { onLogin: (token: string, user: any) => void }) {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('demo@budgetbot.com');
+  const [password, setPassword] = useState('demo123');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
