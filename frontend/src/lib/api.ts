@@ -17,6 +17,9 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
   if (baseUrl && !baseUrl.startsWith('http') && !baseUrl.startsWith('/')) {
     baseUrl = `https://${baseUrl}`;
   }
+  if (baseUrl && !baseUrl.endsWith('/api')) {
+    baseUrl = `${baseUrl.replace(/\/$/, '')}/api`;
+  }
   const fullUrl = `${baseUrl}${endpoint}`.replace(/([^:]\/)\/+/g, "$1");
   const response = await fetch(fullUrl, {
     ...options,
