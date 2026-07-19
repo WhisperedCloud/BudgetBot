@@ -45,6 +45,7 @@ export const createExpense = async (req: AuthRequest, res: Response) => {
 };
 
 export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const userId = req.user!.id;
     const expenses = await prisma.expense.findMany({ where: { userId } });
